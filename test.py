@@ -50,17 +50,48 @@ def create_contact():
 	query= text("SELECT COUNT(*) FROM contact WHERE linkPrecedence = :precedence and email = :email")
 	result1= engine.execute(query, email=email, precedence = 'primary')
 	count1 = result1.scalar()
+	result_primary_id_query = None
 
+	# print(count,' ', count1)
 
 
 	if count>0 and count1>0:
 		# return 'user already exists'
+		# print('user exists')
 
 		query= text("SELECT id FROM contact WHERE linkPrecedence = :precedence and email = :email")
 		result1= engine.execute(query, email=email, precedence = 'primary')
 
-		query2 = text("UPDATE contact SET linkedId = :id, linkPrecedence =:secondPrecedence WHERE linkPrecedence = :precedence and phoneNumber = :phone")
-		result2= engine.execute(query2, id = result1.fetchone()[0], phone=phoneNumber, precedence = 'primary', secondPrecedence='secondary') 
+		temp_query = text("Select id from contact where linkPrecedence=:precedence and phoneNumber=:phone")
+		temp_result = engine.execute(temp_query, precedence='primary', phone=phoneNumber)
+
+		# print(temp_result.fetchone()[0], ' ', result1.fetchone()[0])
+		changed_id = temp_result.fetchone()[0]
+		changing_id = result1.fetchone()[0]
+
+		# print(changed_id, ' ', changing_id)
+
+		# temp_temp_query = text("Select email, phoneNumber from contact where id = :id")
+		# temp_temp_query_result = engine.execute(temp_temp_query, id = changed_id)
+
+		# # print(temp_temp_query_result.fetchall())
+
+		query2 = text("UPDATE contact SET linkedId = :linkedId, linkPrecedence =:secondPrecedence WHERE id = :id")
+		result2= engine.execute(query2, linkedId = changing_id, id = changed_id, secondPrecedence='secondary') 
+
+		query_change_secondary_linked_to_parent = text("UPDATE contact SET linkedId = :linkedId where linkedId = :id")
+		query_change_secondary_linked_to_parent_result = engine.execute(query_change_secondary_linked_to_parent, linkedId = changing_id, id = changed_id)
+
+		# print('#######  ', query_change_secondary_linked_to_parent_result)
+
+		
+		# print(result_primary_id_query.fetchall())
+		# db.session.commit()
+
+		primary_id_query = text('Select id, email, phoneNumber from contact where linkPrecedence = :precedence and id=:id')
+		result_primary_id_query = engine.execute(primary_id_query, id = changing_id,  precedence='primary')
+
+		# print(query_change_secondary_linked_to_parent_result.fetchall())
 
 		# print(result1.fetchone(), ' ', result2.fetchone())
 		# return 'user already exists'
@@ -96,12 +127,19 @@ def create_contact():
 		        updatedAt=datetime.now()
 		    )
 			db.session.add(new_contact)
-	db.session.commit()
 
-	primary_id_query = text('Select id, email, phoneNumber from contact where linkPrecedence = :precedence and (phoneNumber = :phone or email = :email)')
-	result_primary_id_query = engine.execute(primary_id_query, phone = phoneNumber, email=email, precedence='primary')
+		db.session.commit()
+		primary_id_query = text('Select id, email, phoneNumber from contact where linkPrecedence = :precedence and (phoneNumber = :phone or email = :email)')
+		result_primary_id_query = engine.execute(primary_id_query, phone = phoneNumber, email=email, precedence='primary')
+		# print(result_primary_id_query.fetchall())
+
+	
+	
+	# print(result_primary_id_query)
 	# print(type(result_primary_id_query.fetchall()[0]))
+	db.session.commit()
 	primary_id_rows = result_primary_id_query.fetchone()
+	print(primary_id_rows)
 
 	primary_id = primary_id_rows[0]
 	primary_id_email  = primary_id_rows[1]
