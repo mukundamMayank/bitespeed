@@ -1,7 +1,7 @@
 import requests
 
 email='mayank.7967@gmail.com'
-phoneNumber = '1234567'
+phoneNumber = '123456'
 
 json_data = {}
 json_data['email'] = email

@@ -1,199 +1,136 @@
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
+import mysql.connector
+from flask import Flask, request, jsonify
 from datetime import datetime
-from sqlalchemy import create_engine, text
-from orderedset import OrderedSet
-from flask import Flask, jsonify, request
-
+from collections import OrderedDict
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:password@localhost:3306/Bitespeed'
-db = SQLAlchemy(app)
-engine = create_engine('mysql+pymysql://root:password@localhost:3306/Bitespeed')
 
-class Contact(db.Model):
-	id = db.Column(db.Integer, primary_key=True)
-	email = db.Column(db.String(200), nullable=True)
-	phoneNumber = db.Column(db.String(200), nullable=True)
-	linkedId = db.Column(db.Integer, nullable=True)
-	linkPrecedence = db.Column(db.String(200), nullable=True)
-	createdAt = db.Column(db.DateTime)
-	updatedAt = db.Column(db.DateTime)
-	deletedAt = db.Column(db.DateTime, nullable=True)
+host = 'db1'
+port = 3306
+user = 'root'
+password = 'password'
+database = 'Bitespeed'
 
-
-db.create_all()
+def get_mysql_connection():
+    return mysql.connector.connect(
+        host=host,
+        port=port,
+        user=user,
+        password=password,
+        database=database
+    )
 
 @app.route('/identify', methods=['POST'])
 def create_contact():
+    email = None
+    phoneNumber = None
+
+    data = request.get_json()
+
+    if 'email' in data:
+        email = data.get('email')
+
+    if 'phoneNumber' in data:
+        phoneNumber = data.get('phoneNumber')
+
+    connection = get_mysql_connection()
+    cursor = connection.cursor()
+
+    query_check_alreay_exits = "SELECT COUNT(*) FROM contact WHERE linkPrecedence = %s and phoneNumber = %s"
+    cursor.execute(query_check_alreay_exits, ('primary', phoneNumber))
+    count = cursor.fetchone()[0]
+
+    query_check_email = "SELECT COUNT(*) FROM contact WHERE linkPrecedence = %s and email = %s"
+    cursor.execute(query_check_email, ('primary', email))
+    count1 = cursor.fetchone()[0]
+
+    if count > 0 and count1 > 0:
+        query_id_phone = "SELECT id FROM contact WHERE linkPrecedence = %s and phoneNumber = %s"
+        cursor.execute(query_id_phone, ('primary', phoneNumber))
+        changed_id = cursor.fetchone()[0]
+
+        query_id_email = "SELECT id FROM contact WHERE linkPrecedence = %s and email = %s"
+        cursor.execute(query_id_email, ('primary', email))
+        changing_id = cursor.fetchone()[0]
+
+        query_update = "UPDATE contact SET linkedId = %s, linkPrecedence = %s WHERE id = %s"
+        values = (changing_id, 'secondary', changed_id)
+        cursor.execute(query_update, values)
+
+        query_change_secondary_linked_to_parent = "UPDATE contact SET linkedId = %s WHERE linkedId = %s"
+        values = (changing_id, changed_id)
+        cursor.execute(query_change_secondary_linked_to_parent, values)
+
+        connection.commit()
+
+        query_select_primary = "SELECT id, email, phoneNumber FROM contact WHERE linkPrecedence = %s and id = %s"
+        values = ('primary', changing_id)
+        cursor.execute(query_select_primary, values)
+
+
+    else:
+        query_check_exists = "SELECT COUNT(*) FROM contact WHERE linkPrecedence = %s and (phoneNumber = %s OR email = %s)"
+        values = ('primary', phoneNumber, email)
+        cursor.execute(query_check_exists, values)
+        count = cursor.fetchone()[0]
+
+        if count > 0:
+            query_id = "SELECT id FROM contact WHERE linkPrecedence = %s and (phoneNumber = %s OR email = %s)"
+            values = ('primary', phoneNumber, email)
+            cursor.execute(query_id, values)
+            row = cursor.fetchone()
+            new_contact = (email, phoneNumber, 'secondary', row[0], datetime.now(), datetime.now())
+            query_insert = "INSERT INTO contact (email, phoneNumber, linkPrecedence, linkedId, createdAt, updatedAt) VALUES (%s, %s, %s, %s, %s, %s)"
+            cursor.execute(query_insert, new_contact)
+            connection.commit()
+            query_select_primary = "SELECT id, email, phoneNumber FROM contact WHERE linkPrecedence = %s AND id = %s"
+            values = ('primary', row[0])
+            cursor.execute(query_select_primary, values)
+
+
+
+        else:
+	        new_contact = (email, phoneNumber, 'primary', datetime.now(), datetime.now())
+	        query_insert_contact = "INSERT INTO contact (email, phoneNumber, linkPrecedence, createdAt, updatedAt) VALUES (%s, %s, %s, %s, %s)"
+	        cursor.execute(query_insert_contact, new_contact)
+	        changing_id = cursor.lastrowid
+
+	        connection.commit()
+
+	        query_select_primary = "SELECT id, email, phoneNumber FROM contact WHERE linkPrecedence = %s AND id = %s"
+	        values = ('primary', changing_id)
+	        cursor.execute(query_select_primary, values)
+
+    # print(cursor.lastrowid)
+    primary_contact = cursor.fetchone()
+    primary_id = primary_contact[0]
+    primary_id_email = primary_contact[1]
+    primary_id_phoneNumber = primary_contact[2]
+
+    emails = OrderedDict()
+    emails[primary_id_email] = None
+
+    phoneNumbers = OrderedDict()
+    phoneNumbers[primary_id_phoneNumber] = None
+
+    query_get_secondary_contacts = "SELECT id, email, phoneNumber FROM contact WHERE linkPrecedence = %s AND linkedId = %s"
+    cursor.execute(query_get_secondary_contacts, ('secondary', primary_id))
+    secondary_contacts = cursor.fetchall()
+
+    secondaryContactIds = []
+    for secondary_contact in secondary_contacts:
+    	secondaryContactIds.append(secondary_contact[0])
+    	emails[secondary_contact[1]] = None
+    	phoneNumbers[secondary_contact[2]] = None
     
-   ##handle the case where email & phone number both match
+    final_emails = list(emails.keys())
+    final_phoneNumbers = list(phoneNumbers.keys())
 
-	email = None
-	phoneNumber = None
+    response = {'primaryContactId': primary_id,'emails': final_emails,'phoneNumbers': final_phoneNumbers,'secondaryContactIds': secondaryContactIds}
+    cursor.close()
+    connection.close()
 
-	data = request.get_json()
-	# print(data)
-	if 'email' in data:
-		email = data.get('email')
-
-	if 'phoneNumber' in data:
-		phoneNumber = data.get('phoneNumber')
-
-	# print(email, ' ', phoneNumber)
-
-
-	query_check_alreay_exits = text("SELECT COUNT(*) FROM contact WHERE linkPrecedence = :precedence and phoneNumber = :phone")
-	result = engine.execute(query_check_alreay_exits, phone=phoneNumber, precedence = 'primary')
-	count = result.scalar()
-
-	query= text("SELECT COUNT(*) FROM contact WHERE linkPrecedence = :precedence and email = :email")
-	result1= engine.execute(query, email=email, precedence = 'primary')
-	count1 = result1.scalar()
-	result_primary_id_query = None
-
-	# print(count,' ', count1)
-
-
-	if count>0 and count1>0:
-		# return 'user already exists'
-		# print('user exists')
-
-		query= text("SELECT id FROM contact WHERE linkPrecedence = :precedence and email = :email")
-		result1= engine.execute(query, email=email, precedence = 'primary')
-
-		temp_query = text("Select id from contact where linkPrecedence=:precedence and phoneNumber=:phone")
-		temp_result = engine.execute(temp_query, precedence='primary', phone=phoneNumber)
-
-		# print(temp_result.fetchone()[0], ' ', result1.fetchone()[0])
-		changed_id = temp_result.fetchone()[0]
-		changing_id = result1.fetchone()[0]
-
-		# print(changed_id, ' ', changing_id)
-
-		# temp_temp_query = text("Select email, phoneNumber from contact where id = :id")
-		# temp_temp_query_result = engine.execute(temp_temp_query, id = changed_id)
-
-		# # print(temp_temp_query_result.fetchall())
-
-		query2 = text("UPDATE contact SET linkedId = :linkedId, linkPrecedence =:secondPrecedence WHERE id = :id")
-		result2= engine.execute(query2, linkedId = changing_id, id = changed_id, secondPrecedence='secondary') 
-
-		query_change_secondary_linked_to_parent = text("UPDATE contact SET linkedId = :linkedId where linkedId = :id")
-		query_change_secondary_linked_to_parent_result = engine.execute(query_change_secondary_linked_to_parent, linkedId = changing_id, id = changed_id)
-
-		# print('#######  ', query_change_secondary_linked_to_parent_result)
-
-		
-		# print(result_primary_id_query.fetchall())
-		# db.session.commit()
-
-		primary_id_query = text('Select id, email, phoneNumber from contact where linkPrecedence = :precedence and id=:id')
-		result_primary_id_query = engine.execute(primary_id_query, id = changing_id,  precedence='primary')
-
-		# print(query_change_secondary_linked_to_parent_result.fetchall())
-
-		# print(result1.fetchone(), ' ', result2.fetchone())
-		# return 'user already exists'
-
-	else:
-		query = text("SELECT COUNT(*) FROM contact WHERE linkPrecedence = :precedence and (phoneNumber = :phone OR email = :email)")
-		result = engine.execute(query, phone=phoneNumber, email=email, precedence = 'primary')
-		# print(result)
-
-
-		count = result.scalar()
-
-		if count>0:
-			query_id = text("SELECT id FROM contact WHERE linkPrecedence = :precedence and (phoneNumber = :phone OR email = :email)")
-			result_id = engine.execute(query_id, phone=phoneNumber, email=email, precedence = 'primary')
-			row = result_id.fetchone()
-			new_contact = Contact(
-		        email=email,
-		        phoneNumber=phoneNumber,
-		        linkPrecedence='secondary',
-		        linkedId = row[0],
-		        createdAt=datetime.now(),
-		        updatedAt=datetime.now()
-		    )
-			db.session.add(new_contact)
-
-		else:
-			new_contact = Contact(
-		        email=email,
-		        phoneNumber=phoneNumber,
-		        linkPrecedence='primary',
-		        createdAt=datetime.now(),
-		        updatedAt=datetime.now()
-		    )
-			db.session.add(new_contact)
-
-		db.session.commit()
-		primary_id_query = text('Select id, email, phoneNumber from contact where linkPrecedence = :precedence and (phoneNumber = :phone or email = :email)')
-		result_primary_id_query = engine.execute(primary_id_query, phone = phoneNumber, email=email, precedence='primary')
-		# print(result_primary_id_query.fetchall())
-
-	
-	
-	# print(result_primary_id_query)
-	# print(type(result_primary_id_query.fetchall()[0]))
-	db.session.commit()
-	primary_id_rows = result_primary_id_query.fetchone()
-	print(primary_id_rows)
-
-	primary_id = primary_id_rows[0]
-	primary_id_email  = primary_id_rows[1]
-	primary_id_phoneNumber = primary_id_rows[2]
-
-	##fill email in unordered set 
-	emails = OrderedSet()
-	emails.add(primary_id_email)
-
-	phoneNumbers = OrderedSet()
-	phoneNumbers.add(primary_id_phoneNumber)
-
-
-
-	# print(primary_id, ' ', primary_id_email, ' ', primary_id_phoneNumber, ' ', type(primary_id))
-
-	secondary_id_query = text('Select id, email, phoneNumber from contact where linkPrecedence = :precedence and linkedId=:id')
-	result_secondary_id_query = engine.execute(secondary_id_query, id=primary_id, phone = phoneNumber, email=email, precedence='secondary')
-	# print(type(result_primary_id_query.fetchall()[0]))
-	secondary_id_rows = result_secondary_id_query.fetchall()
-
-	secondaryContactIds = []
-
-
-	for i in secondary_id_rows:
-		secondaryContactIds.append(i[0])
-		emails.add(i[1])
-		phoneNumbers.add(i[2])
-
-	# print(emails)
-
-	final_emails = []
-	final_phoneNumbers = []
-
-	for i in emails:
-		final_emails.append(i)
-
-	for i in phoneNumbers:
-		final_phoneNumbers.append(i)
-
-
-	response = {}
-	response['primaryContatctId']=primary_id
-	response['emails'] = final_emails
-	response['phoneNumbers'] = final_phoneNumbers
-	response['secondaryContactIds'] = secondaryContactIds
-
-	final_response = {'contact': response}
-
-	# print(final_response)
-
-	return jsonify(final_response)
-
+    return jsonify(response)
 
 if __name__ == '__main__':
     app.run()
-

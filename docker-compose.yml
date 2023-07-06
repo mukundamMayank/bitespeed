@@ -1,0 +1,27 @@
+version: '3'
+networks:
+  mynetwork:
+
+services:
+  db1:
+    image: mysql:latest
+    ports:
+      - '3309:3306'
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=Bitespeed
+      - MYSQL_HOST=db1
+    networks:
+      - mynetwork
+
+  web:
+    image: python-flask-app:v1.0.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '9000:5000'
+    depends_on:
+      - db1
+    networks:
+      - mynetwork
