@@ -17,3 +17,15 @@
 1) To run & build : sudo docker-compose up --build
 2) To check for running containers: sudo docker ps
 3) To enter in a running container: sudo docker exec -it <container_id> bash (you will get the conatiner id from previous command)
+4) For creating contact table 
+CREATE TABLE contact (
+  id INT AUTO_INCREMENT,
+  email VARCHAR(200) NULL,
+  phoneNumber VARCHAR(200) NULL,
+  linkedId INT NULL,
+  linkPrecedence VARCHAR(200) NULL,
+  createdAt DATETIME,
+  updatedAt DATETIME,
+  deletedAt DATETIME NULL,
+  PRIMARY KEY (id)
+);
