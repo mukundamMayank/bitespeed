@@ -12,6 +12,7 @@
 2) If the phone number & email is already existing then the contact with phone number changes to seconday & its linkedid is also changed to id of the contact
    having email mentioned, the contacts which were child contacts of the id having phone number also change their linkedId to id of the contact having email mentioned. 
 3) If nothing is present then new contact is created.
+4) identify is exposed at 9000
 
 # Commands
 1) To run & build : sudo docker-compose up --build
