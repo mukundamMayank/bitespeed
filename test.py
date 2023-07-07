@@ -130,7 +130,9 @@ def create_contact():
     cursor.close()
     connection.close()
 
-    return jsonify(response)
+    final_response = {'contact': response}
+
+    return jsonify(final_response)
 
 if __name__ == '__main__':
     app.run()
