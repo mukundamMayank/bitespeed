@@ -2,12 +2,12 @@
 1) Clone the Github Repository
 2) Open Terminal & go to your folder where you have cloned it.
 3) Run sudo docker-compose up --build
-4) Open one more terminal & run sudo docker ps, here you must see 2 containers running
+4) Open one more terminal & run sudo docker ps, here you must see 2 containers running. It is to be done after both services start running.
 5) In the mysql container you may need to check for the existence of the table contact. If it is not present then create a table contact.
-6) For checking table presense enter my sql by mysql -u root -p. It will ask for password, type password.
+6) For checking table presense enter my sql by mysql -u root -p. It will ask for password, which is set to password.
 7) The 6th step to be performed after you have entered the mysql container, command for which is given Commands section.
 8) Exit that container & go in flask container & hit the following curl coomand:
-     curl -X POST -H "Content-Type: application/json" -d '{"phoneNumber":"<enter a string>","email":"<enter a string>"}' http://localhost:5000/identify
+     curl -X POST -H "Content-Type: application/json" -d '{"phoneNumber":"enter a string","email":"enter a string"}' http://localhost:5000/identify
 
 # Features inculcated
 1) If the phone number or email is already existing & other entity is non-existent then new contact is created with linkedId equal to parent_id.
