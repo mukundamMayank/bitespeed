@@ -4,7 +4,9 @@
 3) Run sudo docker-compose up --build
 4) Open one more terminal & run sudo docker ps, here you must see 2 containers running
 5) In the mysql container you may need to check for the existence of the table contact. If it is not present then create a table contact.
-6) Exit that container & go in flask container & hit the following curl coomand:
+6) For checking table presense enter my sql by mysql -u root -p. It will ask for password, type password.
+7) The 6th step to be performed after you have entered the mysql container, command for which is given Commands section.
+8) Exit that container & go in flask container & hit the following curl coomand:
      curl -X POST -H "Content-Type: application/json" -d '{"phoneNumber":"<enter a string>","email":"<enter a string>"}' http://localhost:5000/identify
 
 # Features inculcated
