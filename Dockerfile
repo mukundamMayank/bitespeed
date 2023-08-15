@@ -8,6 +8,6 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-EXPOSE 9000 3309
+EXPOSE 5000 3309
 
 CMD ["python", "test.py"]
