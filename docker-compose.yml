@@ -20,7 +20,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - '9000:5000'
+      - '5000:5000'
     depends_on:
       - db1
     networks:
